@@ -1,2 +1,2 @@
-# multiview_geometry
+# Multiple View Geometry
 Multiple View Geometry Educational Codebase
