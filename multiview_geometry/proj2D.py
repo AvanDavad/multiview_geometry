@@ -62,6 +62,7 @@ def solve_quadratic(a, b, c):
         x = -c / b
         return (x, x)
     D = b*b - 4*a*c
+    assert D >= 0, f"no real roots ({a}, {b}, {c})"
     sD = np.sqrt(D)
     x1 = (-b + sD) / (2*a)
     x2 = (-b - sD) / (2*a)
@@ -124,21 +125,18 @@ def get_points_for_conic_A(A, xmin, xmax, ymin, ymax, logmin, logmax, n):
         points.append(xt_ih[s:e])
     return points
 
-def get_conic_points(C, xmin=-3, xmax=3, ymin=-3, ymax=3, logmin=-5, logmax=5, n=1000):
+def get_conic_points(C, xmin=-3, xmax=3, ymin=-3, ymax=3, logmin=-5, logmax=5, n=1000, M=[0, 0]):
     assert np.allclose(C, C.T)
-    # find a point not on the conic
-    for i in range(15):
-        M = np.array([15-i, 15-i, 1.0])
-        if M.dot(C.dot(M)) != 0:
-            break
+    M = np.array([M[0], M[1], 1.0])
+    assert M.dot(C.dot(M)) != 0.0, "M is on the conic"
 
     CM_line = C.dot(M)
     L, R = line_conic_intersection(CM_line, C)
     A = np.column_stack(
         [
-            -np.sqrt(M.dot(C.dot(M))) * L,
-            np.sqrt(2) * np.sqrt(L.dot(C.dot(R))) * M,
-            np.sqrt(M.dot(C.dot(M))) * R,
+            -0.5 * (M.dot(C.dot(M))) / (L.dot(C).dot(R)) * L,
+            M,
+            R,
         ]
     )
 
@@ -174,14 +172,16 @@ def get_Jc(A):
     )
     return Jc
 
-def get_C_from_A(A):
+def cvec2C(cvec):
     """
-    given a 3x3 matrix A that parametrizes a conic,
-    get the conic matrix C.
+    c is the vector form of C: [a, b, c, d, e, f]
+    where C =
+               a   b/2  d/2
+              b/2   c   e/2
+              d/2  e/2   f
     """
-    Jc = get_Jc(A)
-    null_vec = np.linalg.svd(Jc)[2][-1]
-    a, b, c, d, e, f = null_vec
+    assert cvec.shape == (6,)
+    a, b, c, d, e, f = cvec
     C = np.array(
         [
             [a, b/2, d/2],
@@ -189,4 +189,27 @@ def get_C_from_A(A):
             [d/2, e/2, f],
         ]
     )
+    return C
+
+def C2cvec(C):
+    assert C.shape == (3, 3)
+    return np.array(
+        [
+            C[0,0],
+            C[0,1] + C[1,0],
+            C[1,1],
+            C[0,2] + C[2,0],
+            C[1,2] + C[2,1],
+            C[2,2]
+        ]
+    )
+
+def get_C_from_A(A):
+    """
+    given a 3x3 matrix A that parametrizes a conic,
+    get the conic matrix C.
+    """
+    Jc = get_Jc(A)
+    null_vec = np.linalg.svd(Jc)[2][-1]
+    C = cvec2C(null_vec)
     return C
